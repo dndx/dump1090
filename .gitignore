@@ -1,5 +1,6 @@
 *.o
 dump1090
+libdump1090.so
 testfiles/*.bin
 misc
 frames.js

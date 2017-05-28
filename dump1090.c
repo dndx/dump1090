@@ -166,9 +166,6 @@ void modesInitConfig(void) {
 void modesInit(void) {
     int i, q;
 
-    pthread_mutex_init(&Modes.data_mutex,NULL);
-    pthread_cond_init(&Modes.data_cond,NULL);
-
     Modes.sample_rate = 2400000.0;
 
     // Allocate the various buffers used by Modes
@@ -1280,6 +1277,147 @@ int main(int argc, char **argv) {
     return (0);
 #endif
 }
+
+void dump1090_process(char *buf, size_t len) {
+    struct mag_buf *outbuf;
+    struct mag_buf *lastbuf;
+    uint32_t slen;
+    unsigned next_free_buffer;
+    unsigned free_bufs;
+    unsigned block_duration;
+
+    static int was_odd = 0; // paranoia!!
+    static int dropping = 0;
+
+    next_free_buffer = (Modes.first_free_buffer + 1) % MODES_MAG_BUFFERS;
+    outbuf = &Modes.mag_buffers[Modes.first_free_buffer];
+    lastbuf = &Modes.mag_buffers[(Modes.first_free_buffer + MODES_MAG_BUFFERS - 1) % MODES_MAG_BUFFERS];
+    free_bufs = (Modes.first_filled_buffer - next_free_buffer + MODES_MAG_BUFFERS) % MODES_MAG_BUFFERS;
+
+    // Paranoia! Unlikely, but let's go for belt and suspenders here
+
+    if (len != MODES_RTL_BUF_SIZE) {
+        fprintf(stderr, "weirdness: rtlsdr gave us a block with an unusual size (got %u bytes, expected %u bytes)\n",
+                (unsigned)len, (unsigned)MODES_RTL_BUF_SIZE);
+
+        if (len > MODES_RTL_BUF_SIZE) {
+            // wat?! Discard the start.
+            unsigned discard = (len - MODES_RTL_BUF_SIZE + 1) / 2;
+            outbuf->dropped += discard;
+            buf += discard*2;
+            len -= discard*2;
+        }
+    }
+
+    if (was_odd) {
+        // Drop a sample so we are in sync with I/Q samples again (hopefully)
+        ++buf;
+        --len;
+        ++outbuf->dropped;
+    }
+
+    was_odd = (len & 1);
+    slen = len/2;
+
+    if (free_bufs == 0 || (dropping && free_bufs < MODES_MAG_BUFFERS/2)) {
+        // FIFO is full. Drop this block.
+        dropping = 1;
+        outbuf->dropped += slen;
+        return;
+    }
+
+    dropping = 0;
+
+    // Compute the sample timestamp and system timestamp for the start of the block
+    outbuf->sampleTimestamp = lastbuf->sampleTimestamp + 12e6 * (lastbuf->length + outbuf->dropped) / Modes.sample_rate;
+    block_duration = 1e9 * slen / Modes.sample_rate;
+
+    // Get the approx system time for the start of this block
+    clock_gettime(CLOCK_REALTIME, &outbuf->sysTimestamp);
+    outbuf->sysTimestamp.tv_nsec -= block_duration;
+    normalize_timespec(&outbuf->sysTimestamp);
+
+    // Copy trailing data from last block (or reset if not valid)
+    if (outbuf->dropped == 0 && lastbuf->length >= Modes.trailing_samples) {
+        memcpy(outbuf->data, lastbuf->data + lastbuf->length - Modes.trailing_samples, Modes.trailing_samples * sizeof(uint16_t));
+    } else {
+        memset(outbuf->data, 0, Modes.trailing_samples * sizeof(uint16_t));
+    }
+
+    // Convert the new data
+    outbuf->length = slen;
+    convert_samples(buf, &outbuf->data[Modes.trailing_samples], slen, &outbuf->total_power);
+
+    Modes.mag_buffers[next_free_buffer].dropped = 0;
+    Modes.mag_buffers[next_free_buffer].length = 0;  // just in case
+    Modes.first_free_buffer = next_free_buffer;
+
+    if (Modes.first_free_buffer != Modes.first_filled_buffer) {
+        // FIFO is not empty, process one buffer.
+
+        struct mag_buf *buf;
+
+        buf = &Modes.mag_buffers[Modes.first_filled_buffer];
+
+        demodulate2400(buf);
+        if (Modes.mode_ac) {
+            demodulate2400AC(buf);
+        }
+
+        Modes.stats_current.samples_processed += buf->length;
+        Modes.stats_current.samples_dropped += buf->dropped;
+
+        Modes.first_filled_buffer = (Modes.first_filled_buffer + 1) % MODES_MAG_BUFFERS;
+    } else {
+        // Nothing to process this time around.
+        return;
+    }
+
+    backgroundTasks();
+}
+
+int dump1090_init(dump1090_on_traffic_msg cb, void *data) {
+    static int inited = 0;
+
+    if (inited) {
+        return 0;
+    }
+
+    inited = 1;
+    int j;
+
+    // Set sane defaults
+    modesInitConfig();
+
+    // Initialization
+    modesInit();
+
+    Modes.lib_cb = cb;
+    Modes.lib_data = data;
+
+    // init stats:
+    Modes.stats_current.start = Modes.stats_current.end =
+        Modes.stats_alltime.start = Modes.stats_alltime.end =
+        Modes.stats_periodic.start = Modes.stats_periodic.end =
+        Modes.stats_5min.start = Modes.stats_5min.end =
+        Modes.stats_15min.start = Modes.stats_15min.end = mstime();
+
+    for (j = 0; j < 15; ++j)
+        Modes.stats_1min[j].start = Modes.stats_1min[j].end = Modes.stats_current.start;
+
+    return 0;
+
+    // If --stats were given, print statistics
+    if (Modes.stats) {
+        display_total_stats();
+    }
+
+    cleanup_converter(Modes.converter_state);
+    log_with_timestamp("Normal exit.");
+
+    return 0;
+}
+
 //
 //=========================================================================
 //

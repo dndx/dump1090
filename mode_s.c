@@ -1793,10 +1793,13 @@ void displayModesMessage(struct modesMessage *mm) {
 // processing and visualization
 //
 void useModesMessage(struct modesMessage *mm) {
+#ifndef SHARED
     struct aircraft *a;
+#endif
 
     ++Modes.stats_current.messages_total;
 
+#ifndef SHARED
     // Track aircraft state
     a = trackUpdateFromMessage(mm);
 
@@ -1824,6 +1827,117 @@ void useModesMessage(struct modesMessage *mm) {
             modesQueueOutput(mm, a);
         }
     }
+#else
+    traffic_t t = {0};
+    t.addr = mm->addr & 0xFFFFFF;
+    switch (mm->addrtype) {
+        case ADDR_ADSB_ICAO:
+        case ADDR_ADSB_ICAO_NT:
+        case ADDR_ADSB_OTHER:
+            t.addr_type = ADDR_TYPE_ADS_B;
+            break;
+        case ADDR_ADSR_ICAO:
+        case ADDR_ADSR_OTHER:
+            t.addr_type = ADDR_TYPE_ADS_R;
+            break;
+        case ADDR_TISB_ICAO:
+        case ADDR_TISB_TRACKFILE:
+        case ADDR_TISB_OTHER:
+            t.addr_type = ADDR_TYPE_TIS_B;
+            break;
+        default:
+            t.addr_type = ADDR_TYPE_UNKNOWN;
+    }
+
+    if (mm->altitude_valid) {
+        t.altitude_valid = 1;
+        t.altitude = mm->altitude;
+        t.altitude_is_baro = (mm->altitude_source = ALTITUDE_BARO);
+    }
+
+    if (mm->gnss_delta_valid) {
+        t.gnss_delta_valid = 1;
+        t.gnss_delta = mm->gnss_delta;
+    }
+
+    if (mm->heading_valid) {
+        t.heading_valid = 1;
+        t.heading = mm->heading;
+        t.heading_is_true = (mm->heading_source == HEADING_TRUE);
+    }
+
+    if (mm->speed_valid) {
+        t.speed_valid = 1;
+        t.speed = mm->speed;
+        switch (mm->speed_source) {
+            case SPEED_GROUNDSPEED:
+                t.speed_src = SPEED_IS_GS;
+                break;
+            case SPEED_IAS:
+                t.speed_src = SPEED_IS_IAS;
+                break;
+            case SPEED_TAS:
+                t.speed_src = SPEED_IS_TAS;
+                break;
+        }
+    }
+
+    if (mm->vert_rate_valid) {
+        t.vs_valid = 1;
+        t.vs = mm->vert_rate;
+    }
+
+    if (mm->squawk_valid) {
+        t.squawk_valid = 1;
+        t.squawk = mm->squawk;
+    }
+
+    if (mm->callsign_valid) {
+        t.callsign_valid = 1;
+        t.callsign = mm->callsign;
+    }
+
+    if (mm->category_valid) {
+        t.category_valid = 1;
+        t.category = mm->category;
+    }
+
+    if (mm->cpr_decoded) {
+        t.pos_valid = 1;
+        t.lat = mm->decoded_lat;
+        t.lon = mm->decoded_lon;
+
+        if (mm->cpr_valid) {
+            // should always be, but just to be safe
+            t.nic = mm->cpr_nucp;
+        }
+    }
+
+    if (mm->opstatus.valid) {
+        t.nacp_valid = 1;
+        t.nacp = mm->opstatus.nac_p;
+    } else if (mm->tss.valid) {
+        t.nacp_valid = 1;
+        t.nacp = mm->tss.nac_p;
+    }
+
+    switch (mm->airground) {
+        case AG_GROUND:
+            t.airground_valid = 1;
+            t.on_ground = 1;
+            break;
+        case AG_AIRBORNE:
+        // not sure! assuming to be airborne to be safe
+        case AG_UNCERTAIN:
+            t.airground_valid = 1;
+            t.on_ground = 0;
+            break;
+        default:
+            t.airground_valid = 0;
+    }
+
+    Modes.lib_cb(Modes.lib_data, &t);
+#endif
 }
 
 //

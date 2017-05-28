@@ -83,6 +83,7 @@
 #endif
 
 #include "compat/compat.h"
+#include "libdump1090.h"
 
 // Avoid a dependency on rtl-sdr except where it's really needed.
 typedef struct rtlsdr_dev rtlsdr_dev_t;
@@ -378,6 +379,11 @@ struct {                             // Internal state
     int stats_latest_1min;
     struct stats stats_5min;
     struct stats stats_15min;
+
+#ifdef SHARED
+    dump1090_on_traffic_msg lib_cb;
+    void                    *lib_data;
+#endif
 } Modes;
 
 // The struct we use to store information about a decoded message.
