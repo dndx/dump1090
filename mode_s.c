@@ -1798,6 +1798,7 @@ void useModesMessage(struct modesMessage *mm) {
 #endif
 
     ++Modes.stats_current.messages_total;
+    trackUpdateFromMessage(mm);
 
 #ifndef SHARED
     // Track aircraft state
