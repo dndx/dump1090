@@ -1403,16 +1403,6 @@ int dump1090_init(dump1090_on_traffic_msg cb, void *data) {
         Modes.stats_1min[j].start = Modes.stats_1min[j].end = Modes.stats_current.start;
 
     return 0;
-
-    // If --stats were given, print statistics
-    if (Modes.stats) {
-        display_total_stats();
-    }
-
-    cleanup_converter(Modes.converter_state);
-    log_with_timestamp("Normal exit.");
-
-    return 0;
 }
 
 //
