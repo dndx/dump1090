@@ -2,10 +2,13 @@
 #define LIBDUMP1090_H
 
 enum {
-    ADDR_TYPE_ADS_B = 1,
-    ADDR_TYPE_ADS_R = 2,
-    ADDR_TYPE_TIS_B = 3,
-    ADDR_TYPE_UNKNOWN = 4,
+    ADDR_TYPE_ADS_B_ICAO = 1,
+    ADDR_TYPE_ADS_B_OTHER = 2,
+    ADDR_TYPE_ADS_R_ICAO = 3,
+    ADDR_TYPE_ADS_R_OTHER = 4,
+    ADDR_TYPE_TIS_B_ICAO = 5,
+    ADDR_TYPE_TIS_B_OTHER = 6,
+    ADDR_TYPE_UNKNOWN = 7,
 };
 
 enum {

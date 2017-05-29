@@ -1834,17 +1834,23 @@ void useModesMessage(struct modesMessage *mm) {
     switch (mm->addrtype) {
         case ADDR_ADSB_ICAO:
         case ADDR_ADSB_ICAO_NT:
+            t.addr_type = ADDR_TYPE_ADS_B_ICAO;
+            break;
         case ADDR_ADSB_OTHER:
-            t.addr_type = ADDR_TYPE_ADS_B;
+            t.addr_type = ADDR_TYPE_ADS_B_OTHER;
             break;
         case ADDR_ADSR_ICAO:
+            t.addr_type = ADDR_TYPE_ADS_R_ICAO;
+            break;
         case ADDR_ADSR_OTHER:
-            t.addr_type = ADDR_TYPE_ADS_R;
+            t.addr_type = ADDR_TYPE_ADS_R_OTHER;
             break;
         case ADDR_TISB_ICAO:
+            t.addr_type = ADDR_TYPE_TIS_B_ICAO;
+            break;
         case ADDR_TISB_TRACKFILE:
         case ADDR_TISB_OTHER:
-            t.addr_type = ADDR_TYPE_TIS_B;
+            t.addr_type = ADDR_TYPE_TIS_B_OTHER;
             break;
         default:
             t.addr_type = ADDR_TYPE_UNKNOWN;

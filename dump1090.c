@@ -1368,9 +1368,6 @@ void dump1090_process(char *buf, size_t len) {
         Modes.stats_current.samples_dropped += buf->dropped;
 
         Modes.first_filled_buffer = (Modes.first_filled_buffer + 1) % MODES_MAG_BUFFERS;
-    } else {
-        // Nothing to process this time around.
-        return;
     }
 
     backgroundTasks();
