@@ -1859,7 +1859,7 @@ void useModesMessage(struct modesMessage *mm) {
     if (mm->altitude_valid) {
         t.altitude_valid = 1;
         t.altitude = mm->altitude;
-        t.altitude_is_baro = (mm->altitude_source = ALTITUDE_BARO);
+        t.altitude_is_baro = (mm->altitude_source == ALTITUDE_BARO);
     }
 
     if (mm->gnss_delta_valid) {
