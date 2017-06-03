@@ -55,7 +55,7 @@ libdump1090.so: dump1090.o anet.o interactive.o mode_ac.o mode_s.o net_io.o crc.
 	$(CC) -g -o $@ $^ $(LIBS) $(LDFLAGS) -shared
 
 install: libdump1090.so
-	cp -r libdump1090.so /usr/lib/
+	cp -r libdump1090.so /usr/local/lib/
 
 dump1090: dump1090.o anet.o interactive.o mode_ac.o mode_s.o net_io.o crc.o demod_2400.o stats.o cpr.o icao_filter.o track.o util.o convert.o $(COMPAT)
 	$(CC) -g -o $@ $^ $(LIBS) $(LIBS_RTL) $(LDFLAGS)
